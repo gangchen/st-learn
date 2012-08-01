@@ -1,81 +1,24 @@
-#include <boost/algorithm/string.hpp>
-#include <iostream>
-#include <fstream>
-#include <cstdlib>
-#include <vector>
-#include <stack>
+#include "slData.h"
 
 using namespace std;
 using namespace boost;
 
-class slSample{
-public:
-	slSample(){};
-	slSample(short int y, vector <double> x);
-	short int getY(){return Y;};
-	vector <double> getX(){return X;};
-	void setY(short int y){Y = y;};
-	void setX(vector <double> x){X = x;};
-private:
-	short int Y;
-	vector <double> X;
-};
-
-slSample::slSample(short int y, vector <double> x){
-	Y = y;
-	X = x;
-}
-
-class slData{
-public:
-	slData(){};
-	slData(string inputFilename);
-	slSample getSample(int i){return samples[i];};
-	vector <slSample> getSamples(){return samples;};
-	int getnFeatures(){return nFeatures;};
-private:
-	vector <slSample> samples;
-	int nSamples, nFeatures;
-};
-
-slData::slData(string inputFilename){
-	ifstream inputFile(inputFilename.c_str());
-	if(!inputFile){
-		cerr << "Input File Error" << endl;
-		exit(1);
-	}
-	nSamples = 0;
-	string line;
-	vector<string> fields;
-	while(inputFile.good()){
-		getline(inputFile, line);
-		split(fields, line, is_any_of("\t"));
-		vector<double> tmpX;
-		for(vector<string>::iterator it = fields.begin()+1;
-			it != fields.end(); it++){
-			tmpX.push_back(atof(it->c_str()));
-		}
-		slSample tmpslSample = slSample(atoi(fields[0].c_str()), tmpX);
-		samples.push_back(tmpslSample);
-		nSamples++;
-		nFeatures = tmpX.size();
-	}
-	inputFile.close();
-}
-
 class slPerceptron{
 public:
-	slPerceptron(slData d);
+	slPerceptron(const slData d);
+	slPerceptron(const slData d, double learnRate);
 	void train();
 	vector<double> getw() {return w;};
 	double getb() {return b;};
-	void setData(slData d);
+	void setData(slData d){ trainData = d;};
 	slData getData() {return trainData;};
 private:
 	vector<double> w;
 	double b;
 	slData trainData;
 	short int sign(double n);
+	double learnRate;
+	void construct(const slData d, double learnRate);
 };
 
 short int slPerceptron::sign(double n){
@@ -86,13 +29,28 @@ short int slPerceptron::sign(double n){
 	}
 }
 
-slPerceptron::slPerceptron(slData d){
-	trainData = d;
+void slPerceptron::construct(const slData d, double l){
+	if(l > 0 && l <= 1){
+		learnRate = l;
+	}else{
+		cerr << "Warning: Learn Rate is expected to bigger than 0 and not bigger than 1" << endl;
+		cerr << "Learn Rate is set to 1." << endl;
+		learnRate = 1;
+	}
+
+	setData(d);
 	for(unsigned i = 0; i < trainData.getnFeatures(); i++){
 		w.push_back(1);
 	}
 	b = 1;
+}
 
+slPerceptron::slPerceptron(const slData d){
+	construct(d, 1);
+}
+
+slPerceptron::slPerceptron(const slData d, double l){
+	construct(d, l);
 }
 
 void slPerceptron::train(){
@@ -120,9 +78,9 @@ void slPerceptron::train(){
 			cout << ret << endl;
 			if(ret <= 0){
 				for(int i = 0; i < w.size(); i++){
-					w[i] = 1 * curSample.getY()*curX[i] + w[i];
+					w[i] = learnRate * curSample.getY()*curX[i] + w[i];
 				}
-				b = b + 1 * curSample.getY();
+				b = b + learnRate * curSample.getY();
 				while ( ! reSamples.empty() ){
     				reSamples.pop();
 				}
